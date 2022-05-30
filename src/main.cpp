@@ -49,11 +49,7 @@ double model_variance        = MODELSIGMA * MODELSIGMA;
 int main(int argc, char** argv)
 {
   csv::CSVReader reader("../sim/RocketSimulation.csv");
-  for (auto& row: reader)
-  {
-    std::cout << "Time: " << row["TIME_s"].get<double>() << std::endl;
-  }
-  return 0;
+  csv::CSVRow    row;
 
   char   buf[512];
   int    i, j, k, notdone;
@@ -71,39 +67,21 @@ int main(int argc, char** argv)
   double lastkgain[3][2], dt;
   double term[3][3];
 
-  /* check for model variance parameter */
-  if (argc == 2)
-  {
-    double temp;
-    temp           = atof(argv[1]);
-    model_variance = acceleration_variance / temp;
-  }
   /* Initialize */
-  /* Skip text at start of file. */
-  while (true)
-  {
-    if (gets(buf) == nullptr)
-    {
-      fprintf(stderr, "No data in file\n");
-      exit(1);
-    }
-    else
-    {
-      if (strstr(buf, "-2.000"))
-        break;
-    }
-  }
-  sscanf(buf, "%lf %lf %lf", &time, &accel, &pressure);
+
+  reader.read_row(row);
+  time = row["TIME_s"].get<double>();
+  accel = row["ACCELERATION_mss"].get<double>();
+  pressure = row["ALTITUDE_m"].get<double>();
+
   est[0]    = pressure;
   last_time = time;
 
-  if (gets(buf) == nullptr)
-  {
-    fprintf(stderr, "No data\n");
-    exit(1);
-  }
+  reader.read_row(row);
+  time = row["TIME_s"].get<double>();
+  accel = row["ACCELERATION_mss"].get<double>();
+  pressure = row["ALTITUDE_m"].get<double>();
 
-  sscanf(buf, "%lf %lf %lf", &time, &accel, &pressure);
   dt        = time - last_time;
   last_time = time;
 
@@ -204,9 +182,12 @@ int main(int argc, char** argv)
   /* Output header for data. */
   printf("#\n# Output from rkal32:\n# A third order Kalman filter using acceleration and pressure measurements\n");
   printf("# Time Press. Alt. Acceleration Est Pos Est Rate Est Accel\n#\n");
-  while (gets(buf) != nullptr)
+  while (reader.read_row(row))
   {
-    sscanf(buf, "%lf %lf %lf", &time, &accel, &pressure);
+    time = row["TIME_s"].get<double>();
+    accel = row["ACCELERATION_mss"].get<double>();
+    pressure = row["ALTITUDE_m"].get<double>();
+
     /* remove offset and convert from G's to ft/sec/sec */
     accel = (accel - 1.0) * 32.17417;
     /* sanity check on time */
