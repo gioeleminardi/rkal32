@@ -34,23 +34,20 @@ COMPILING
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
-#include <cstring>
 
 #include "csv.hpp"
 
-#define ALTITUDESIGMA     15.0
-#define ACCELERATIONSIGMA 6.0
-#define MODELSIGMA        0.6
-#define M_TO_FEET         3.28084
-#define G                 9.81
+constexpr double ALTITUDESIGMA     = 4.572;
+constexpr double ACCELERATIONSIGMA = 1.83;
+constexpr double MODELSIGMA        = 0.183;
 
-double altitude_variance     = ALTITUDESIGMA * ALTITUDESIGMA;
-double acceleration_variance = ACCELERATIONSIGMA * ACCELERATIONSIGMA;
-double model_variance        = MODELSIGMA * MODELSIGMA;
+constexpr double altitude_variance     = ALTITUDESIGMA * ALTITUDESIGMA;
+constexpr double acceleration_variance = ACCELERATIONSIGMA * ACCELERATIONSIGMA;
+constexpr double model_variance        = MODELSIGMA * MODELSIGMA;
 
 int main(int argc, char** argv)
 {
-  csv::CSVReader reader("../sim/RocketSimulation.csv");
+  csv::CSVReader reader("../sim/out_matrix.csv");
   csv::CSVRow    row;
 
   char   buf[512];
@@ -72,9 +69,11 @@ int main(int argc, char** argv)
   /* Initialize */
 
   reader.read_row(row);
-  time     = row["TIME_s"].get<double>();
-  accel    = row["ACCELERATION_mss"].get<double>();
-  pressure = row["ALTITUDE_m"].get<double>() * M_TO_FEET;
+  time  = row["TIME_s"].get<double>();
+  accel = row["ACCELERATION_mss"].get<double>();
+  if (accel < 0)
+    accel *= -1.0f;
+  pressure = row["ALTITUDE_m"].get<double>();
 
   est[0]    = pressure;
   last_time = time;
@@ -82,7 +81,9 @@ int main(int argc, char** argv)
   reader.read_row(row);
   time     = row["TIME_s"].get<double>();
   accel    = row["ACCELERATION_mss"].get<double>();
-  pressure = row["ALTITUDE_m"].get<double>() * M_TO_FEET;
+  if (accel < 0)
+    accel *= -1.0f;
+  pressure = row["ALTITUDE_m"].get<double>();
 
   dt        = time - last_time;
   last_time = time;
@@ -165,33 +166,35 @@ int main(int argc, char** argv)
   }
 
   printf("Input noise values used (standard deviation):\n");
-  printf("# Altitude - %15f feet\n", sqrt(altitude_variance));
-  printf("# Acceleration - %15f feet/sec/sec\n", sqrt(acceleration_variance));
-  printf("# Model noise - %15f feet/sec/sec\n#\n", sqrt(model_variance));
-  printf("# Kalman gains converged after %d iterations.\n#", k);
+  printf("# Altitude - %.4f m\n", sqrt(altitude_variance));
+  printf("# Acceleration - %.4f m/s/s\n", sqrt(acceleration_variance));
+  printf("# Model noise - %.4f m/s/s\n", sqrt(model_variance));
+  printf("# Kalman gains converged after %d iterations.\n", k);
   for (i = 0; i <= 2; i++)
     for (j = 0; j <= 1; j++)
       printf("%15f ", kgain[i][j]);
-  printf("\n#\n");
+  printf("\n");
   printf("# Estimated output first order statistics (standard deviation):\n");
-  printf("# Altitude - %15f feet\n", sqrt(pest[0][0]));
-  printf("# Velocity - %15f feet/sec\n", sqrt(pest[1][1]));
-  printf("# Acceleration - %15f feet/sec/sec\n", sqrt(pest[2][2]));
+  printf("# Altitude - %.4f m\n", sqrt(pest[0][0]));
+  printf("# Velocity - %.4f m/s\n", sqrt(pest[1][1]));
+  printf("# Acceleration - %.4f m/s/s\n", sqrt(pest[2][2]));
 
   /* Now run the Kalman filter on the data using previously
    * determined gains.
    */
   /* Output header for data. */
   printf("#\n# Output from rkal32:\n# A third order Kalman filter using acceleration and pressure measurements\n");
-  printf("# \t\t\tTime\tPress.\tAlt.\tAcceleration\tEst Pos\tEst Rate\tEst Accel\n#\n");
+  printf("Time;Alt;Acc;EstPos;EstRate;EstAcc\n");
   while (reader.read_row(row))
   {
     time     = row["TIME_s"].get<double>();
     accel    = row["ACCELERATION_mss"].get<double>();
-    pressure = row["ALTITUDE_m"].get<double>() * M_TO_FEET;
+    if (accel < 0)
+      accel *= -1.0f;
+    pressure = row["ALTITUDE_m"].get<double>();
 
     /* remove offset and convert from G's to ft/sec/sec */
-    accel = (accel - 1.0) * 32.17417;
+    //    accel = (accel - 1.0) * 32.17417;
     /* sanity check on time */
     if (last_time >= time)
     {
@@ -233,7 +236,7 @@ int main(int argc, char** argv)
      * This is just hacked in based on a single data set. Actual
      * flight software needs something more sophisticated.
      */
-    if (pressure > 37000)
+    if (pressure > 11000)
       alt_inovation = 0;
     /* Propagate state */
     estp[0] = phi[0][0] * est[0] + phi[0][1] * est[1] + phi[0][2] * est[2];
@@ -249,7 +252,7 @@ int main(int argc, char** argv)
     /*
      * Output
      */
-    printf("%15f %15f %15f %15f %15f %15f\n", time, pressure, accel, est[0], est[1], est[2]);
+    printf("%.2f;%.4f;%.4f;%.4f;%.4f;%.4f\n", time, pressure, accel, est[0], est[1], est[2]);
     last_time = time;
   }
 }
