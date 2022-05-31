@@ -70,9 +70,6 @@ int main(int argc, char** argv)
 
   reader.read_row(row);
   time  = row["TIME_s"].get<double>();
-  accel = row["ACCELERATION_mss"].get<double>();
-  if (accel < 0)
-    accel *= -1.0f;
   pressure = row["ALTITUDE_m"].get<double>();
 
   est[0]    = pressure;
@@ -80,10 +77,6 @@ int main(int argc, char** argv)
 
   reader.read_row(row);
   time     = row["TIME_s"].get<double>();
-  accel    = row["ACCELERATION_mss"].get<double>();
-  if (accel < 0)
-    accel *= -1.0f;
-  pressure = row["ALTITUDE_m"].get<double>();
 
   dt        = time - last_time;
   last_time = time;
@@ -189,8 +182,6 @@ int main(int argc, char** argv)
   {
     time     = row["TIME_s"].get<double>();
     accel    = row["ACCELERATION_mss"].get<double>();
-    if (accel < 0)
-      accel *= -1.0f;
     pressure = row["ALTITUDE_m"].get<double>();
 
     /* remove offset and convert from G's to ft/sec/sec */
